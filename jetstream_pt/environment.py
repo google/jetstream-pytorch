@@ -25,6 +25,14 @@ import torch_xla2
 
 from jetstream_pt import cache_manager
 
+from absl import flags
+
+
+FLAGS = flags.FLAGS
+flags.DEFINE_integer('internal_starting_position', 512, 
+                     'Starting position in kv cache')
+
+
 
 @dataclasses.dataclass
 # pylint: disable-next=all
@@ -36,7 +44,6 @@ class QuantizationConfig:
   is_symmetric_weight: bool = True
 
   enable_activation_quantization: bool = False
-
   enable_kv_quantization: bool = False
 
 
@@ -75,11 +82,6 @@ class JetEngineEnvironmentData:
   # This string must be one of the values of attention_kv_axis_names above
   kv_cache_shard_axis: str = "num_attn_heads"
 
-  # Override sharding axis of a weight by name
-  experimental_sharding_axis_override: Dict[str, int] = dataclasses.field(
-      default_factory=dict
-  )
-
   # QKV fusion has negative performance on TPU, slicing takes longer
   qkv_fusion: bool = False
 
@@ -99,19 +101,6 @@ class JetEngineEnvironmentData:
 
   # Starting position
   starting_position: int = 512
-
-  # Variables used in token sampling
-  # sampling algorithm to use ("greedy", "weighted", "neucleus", "topk")
-  sampling_algorithm: str = "greedy"
-
-  # size of top k used when sampling next token
-  topk: int = 0
-
-  # restricting to p probability mass before sampling
-  nucleus_topp: float = 0.0
-
-  # temperature parameter for scaling probability
-  temperature: float = 1.0
 
 
 # pylint: disable-next=all

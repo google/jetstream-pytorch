@@ -40,6 +40,31 @@ from jetstream_pt.third_party.llama import model_exportable as llama_model, mode
 from jetstream_pt.third_party.gemma import config as gemma_config, model as gemma_model
 from jetstream_pt.third_party.mixtral import config as mixtral_config, model as mixtral_model
 
+from absl import flags
+FLAGS = flags.FLAGS
+flags.DEFINE_float(
+    "temperature",
+    1.0,
+    "temperature parameter for scaling probability."
+    "Only invoked when sampling algorithm is set to"
+    "weighted or topk",
+)
+flags.DEFINE_string(
+    "sampling_algorithm",
+    "greedy",
+    "sampling algorithm to use. Options:"
+    "('greedy', 'weighted', 'neucleus', 'topk')",
+)
+flags.DEFINE_float(
+    "nucleus_topp",
+    0.0,
+    "restricting to p probability mass before sampling",
+)
+flags.DEFINE_integer(
+    "topk",
+    0,
+    "size of top k used when sampling next token",
+)
 
 Mesh = jax.sharding.Mesh
 P = jax.sharding.PartitionSpec
@@ -225,10 +250,10 @@ class PyTorchEngine(engine_api.Engine):
         sampling_utils.sampling(
             logits[:, -1],
             self.rng,
-            self.env.sampling_algorithm,
-            self.env.topk,
-            self.env.nucleus_topp,
-            self.env.temperature,
+            FLAGS.sampling_algorithm,
+            FLAGS.topk,
+            FLAGS.nucleus_topp,
+            FLAGS.temperature,
         )
         .reshape(batch_size, -1)
         .astype(jnp.int32)

@@ -6,6 +6,7 @@ from typing import Any, List, Optional
 import jax
 import torch
 import torch.nn.functional as F
+import functools
 from jetstream_pt.layers import (
     Attention,
     Int8Embedding,
@@ -18,6 +19,20 @@ from jetstream_pt.layers import (
 from torch import nn
 
 from . import model_args
+
+def _replace_names(replace_dict, state_dict, prefix, *args):
+  to_replace = {}
+  for key, val in state_dict.items():
+    for alt_names, replacement in replace_dict.items():
+      pref_to_replace = prefix + alt_names
+      if key.startswith(pref_to_replace):
+        to_replace[key] = prefix + replacement + key[len(pref_to_replace):]
+
+  print(to_replace)
+  for key, val in to_replace.items():
+    tensor = state_dict.pop(key)
+    state_dict[val] = tensor
+
 
 
 class FeedForward(nn.Module):
@@ -67,6 +82,14 @@ class FeedForward(nn.Module):
         **linear_kwargs,
     )
 
+    self._prefix_changes = {
+      "up_proj": "w3",
+      "down_proj": "w2",
+      "gate_proj": "w1",
+    }
+    self._register_load_state_dict_pre_hook(
+      functools.partial(_replace_names, self._prefix_changes))
+
   def forward(self, x):
     result = self.w2(F.silu(self.w1(x)) * self.w3(x))
     return result
@@ -108,6 +131,18 @@ class TransformerBlock(nn.Module):
         args.dim, eps=args.norm_eps, device=args.device
     )
     self.ffn_norm = RMSNorm(args.dim, eps=args.norm_eps, device=args.device)
+
+    self._prefix_changes = {
+      "self_attn.k_proj": 'attention.wk',
+      "self_attn.o_proj": 'attention.wo',
+      "self_attn.q_proj": 'attention.wq',
+      "self_attn.v_proj": 'attention.wv',
+      "mlp": 'feed_forward',
+      "input_layernorm": "attention_norm",
+      "post_attention_layernorm": "ffn_norm",
+    }
+    self._register_load_state_dict_pre_hook(
+      functools.partial(_replace_names, self._prefix_changes))
 
   def forward(
       self,
@@ -196,6 +231,16 @@ class Transformer(nn.Module):
     )
 
     self.register_buffer("freqs_cis", freqs_cis)
+
+    self._prefix_changes = {
+      "model.layers": 'layers',
+      "lm_head": 'output',
+      "model.embed_tokens": "tok_embeddings",
+      "model.norm": "norm",
+    }
+    self._register_load_state_dict_pre_hook(
+      functools.partial(_replace_names, self._prefix_changes))
+
 
   @torch.no_grad()
   def forward(
@@ -298,3 +343,21 @@ class Transformer(nn.Module):
     elif model_name == "llama-3":
       sharding_dict["tok_embeddings.weight"] = "VocabParallelEmbedding"
     return sharding_dict
+
+  @classmethod
+  def from_hf_model_id(cls, model_id, env):
+    name = {
+      "meta-llama/Llama-2-7b-chat-hf": 'llama-2-7b',
+      "meta-llama/Llama-2-7b-hf": 'llama-2-7b',
+      "meta-llama/Llama-2-13b-chat-hf": "llama-2-13b",
+      "meta-llama/Llama-2-13b-hf": "llama-2-13b",
+      "meta-llama/Meta-Llama-3-8B": "llama-3-8b",
+      "meta-llama/Meta-Llama-3-8B-Instruct":"llama-3-8b"
+    }.get(model_id)
+    assert name
+    args = model_args.get_model_args(
+      name, env.cache_len, env.batch_size, env.bf16_enable)
+    model = cls(args, env)
+    return model
+  
+

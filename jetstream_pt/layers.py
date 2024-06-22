@@ -37,6 +37,8 @@ from jetstream_pt.quantize import (
 from torch import nn
 from . import attention_kernel as ak
 
+from absl import flags
+
 
 def _calc_cosine_dist(x, y):
   x = x.flatten().to(torch.float32)
