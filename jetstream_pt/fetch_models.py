@@ -115,7 +115,7 @@ def construct_env_data_from_model_id(
     checkpoint_path = _int_dir(repo_id)
     checkpoint_format = 'safetensors'
   else:
-    checkpoint_path = _bf_dir(repo_id)
+    checkpoint_path = _hf_dir(repo_id)
     checkpoint_format = 'safetensors'
 
   sharding_config = get_sharding_config(repo_id)
@@ -163,29 +163,23 @@ def _load_weights(directory):
 
 def instantiate_model_from_repo_id(
   repo_id,
-    batch_size, 
-    input_length, 
-    output_length, 
-    quantize, 
+  env, 
   ):
   model_dir = _hf_dir(repo_id)
   if not os.path.exists(model_dir) or not os.listdir(model_dir):
     # no weights has been downloaded 
     hf_download(repo_id, model_dir, FLAGS.hf_token)
-  env_data = construct_env_data_from_model_id(
-      repo_id, 
-      batch_size, 
-      input_length, 
-      output_length, 
-      quantize, 
-  )
-  env = JetEngineEnvironment(env_data)
-
   model_info = model_id_to_class.get(repo_id)
   assert model_info is not None
 
   model = model_info.model_class.from_hf_model_id(repo_id, env)
   weights = _load_weights(model_dir)
+  updated_keys = model.get_hf_names_to_real_name()
+  for name, updated in updated_keys.items():
+    if name in weights:
+      val = weights.pop(name)
+      weights[updated] = val
+
   return model, weights
 
   ## QQ do i need to set the weights onto the model?

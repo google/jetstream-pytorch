@@ -7,6 +7,7 @@ import jax
 import torch
 import torch.nn.functional as F
 import functools
+from jetstream_pt.model_base import ModuleBase
 from jetstream_pt.layers import (
     Attention,
     Int8Embedding,
@@ -35,7 +36,7 @@ def _replace_names(replace_dict, state_dict, prefix, *args):
 
 
 
-class FeedForward(nn.Module):
+class FeedForward(ModuleBase):
   """Feed-forward module."""
 
   def __init__(
@@ -81,21 +82,17 @@ class FeedForward(nn.Module):
         device=device,
         **linear_kwargs,
     )
+    self.hf_name('w1', 'gate_proj')
+    self.hf_name('w2', 'down_proj')
+    self.hf_name('w3', 'up_proj')
 
-    self._prefix_changes = {
-      "up_proj": "w3",
-      "down_proj": "w2",
-      "gate_proj": "w1",
-    }
-    self._register_load_state_dict_pre_hook(
-      functools.partial(_replace_names, self._prefix_changes))
 
   def forward(self, x):
     result = self.w2(F.silu(self.w1(x)) * self.w3(x))
     return result
 
 
-class TransformerBlock(nn.Module):
+class TransformerBlock(ModuleBase):
   """Transformer block."""
 
   def __init__(
@@ -132,17 +129,16 @@ class TransformerBlock(nn.Module):
     )
     self.ffn_norm = RMSNorm(args.dim, eps=args.norm_eps, device=args.device)
 
-    self._prefix_changes = {
-      "self_attn.k_proj": 'attention.wk',
-      "self_attn.o_proj": 'attention.wo',
-      "self_attn.q_proj": 'attention.wq',
-      "self_attn.v_proj": 'attention.wv',
-      "mlp": 'feed_forward',
-      "input_layernorm": "attention_norm",
-      "post_attention_layernorm": "ffn_norm",
-    }
-    self._register_load_state_dict_pre_hook(
-      functools.partial(_replace_names, self._prefix_changes))
+    self.hf_name('attention', 'self_attn')
+    self.attention.hf_name('wq', 'q_proj')
+    self.attention.hf_name('wk', 'k_proj')
+    self.attention.hf_name('wv', 'v_proj')
+    self.attention.hf_name('wo', 'o_proj')
+
+    self.hf_name('feed_forward', 'mlp')
+    self.hf_name('attention_norm', 'input_layernorm')
+    self.hf_name('ffn_norm', 'post_attention_layernorm')
+
 
   def forward(
       self,
@@ -185,7 +181,7 @@ def precompute_freqs_cis(
   return freqs_cis
 
 
-class Transformer(nn.Module):
+class Transformer(ModuleBase):
   """Transformer module."""
 
   def __init__(
@@ -232,14 +228,11 @@ class Transformer(nn.Module):
 
     self.register_buffer("freqs_cis", freqs_cis)
 
-    self._prefix_changes = {
-      "model.layers": 'layers',
-      "lm_head": 'output',
-      "model.embed_tokens": "tok_embeddings",
-      "model.norm": "norm",
-    }
-    self._register_load_state_dict_pre_hook(
-      functools.partial(_replace_names, self._prefix_changes))
+    self.hf_name('output', 'lm_head')
+    self.hf_name('norm', 'model.norm')
+    self.hf_name('layers', 'model.layers')
+    self.hf_name('tok_embeddings', 'model.embed_tokens')
+
 
 
   @torch.no_grad()
@@ -359,5 +352,8 @@ class Transformer(nn.Module):
       name, env.cache_len, env.batch_size, env.bf16_enable)
     model = cls(args, env)
     return model
+
+  def drop_weight(self, key):
+    return key.startswith('model')
   
 

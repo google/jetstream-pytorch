@@ -26,6 +26,7 @@ import torch_xla2
 from jax import lax
 from jetstream_pt import torchjax
 from jetstream_pt.environment import QuantizationConfig
+from jetstream_pt.model_base import ModuleBase
 from jetstream_pt.quantize import (
     dequantize_tensor,
     load_q_weight_helper,
@@ -503,7 +504,7 @@ class Int8KVAttentionKernel:
       return output
 
 
-class Attention(nn.Module):
+class Attention(ModuleBase):
   """Attention module."""
 
   def __init__(self, n_heads, n_kv_heads, head_dim, hidden_size, device, env):
