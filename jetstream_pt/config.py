@@ -30,7 +30,6 @@ flags.DEFINE_integer("context_length", 1024, "The context length")
 flags.DEFINE_integer("batch_size", 32, "The batch size")
 flags.DEFINE_string("size", "tiny", "size of model")
 flags.DEFINE_bool("quantize_kv_cache", False, "kv_cache_quantize")
-flags.DEFINE_integer("max_cache_length", 1024, "kv_cache_quantize")
 flags.DEFINE_string("sharding_config", "", "config file for sharding")
 flags.DEFINE_bool(
     "shard_on_batch",
@@ -82,29 +81,6 @@ flags.DEFINE_integer(
     "The starting position of decoding, "
     "for performance tuning and debugging only",
     required=False,
-)
-flags.DEFINE_float(
-    "temperature",
-    1.0,
-    "temperature parameter for scaling probability."
-    "Only invoked when sampling algorithm is set to"
-    "weighted or topk",
-)
-flags.DEFINE_string(
-    "sampling_algorithm",
-    "greedy",
-    "sampling algorithm to use. Options:"
-    "('greedy', 'weighted', 'neucleus', 'topk')",
-)
-flags.DEFINE_float(
-    "nucleus_topp",
-    0.0,
-    "restricting to p probability mass before sampling",
-)
-flags.DEFINE_integer(
-    "topk",
-    0,
-    "size of top k used when sampling next token",
 )
 
 

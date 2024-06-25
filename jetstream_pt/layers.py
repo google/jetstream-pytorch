@@ -26,6 +26,7 @@ import torch_xla2
 from jax import lax
 from jetstream_pt import torchjax
 from jetstream_pt.environment import QuantizationConfig
+from jetstream_pt.model_base import ModuleBase
 from jetstream_pt.quantize import (
     dequantize_tensor,
     load_q_weight_helper,
@@ -36,6 +37,8 @@ from jetstream_pt.quantize import (
 )
 from torch import nn
 from . import attention_kernel as ak
+
+from absl import flags
 
 
 def _calc_cosine_dist(x, y):
@@ -501,7 +504,7 @@ class Int8KVAttentionKernel:
       return output
 
 
-class Attention(nn.Module):
+class Attention(ModuleBase):
   """Attention module."""
 
   def __init__(self, n_heads, n_kv_heads, head_dim, hidden_size, device, env):
