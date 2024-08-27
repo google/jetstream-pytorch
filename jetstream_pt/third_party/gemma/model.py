@@ -100,7 +100,7 @@ class GemmaAttention(nn.Module):
     )
     linear_kwargs = {}
     if Linear != torch.nn.Linear:
-      linear_kwargs = {"quant_config": env.quant_config}
+      linear_kwargs = {"env": env}
 
     self.wq = Linear(
         hidden_size,
@@ -238,7 +238,7 @@ class GemmaMLP(nn.Module):
     )
     linear_kwargs = {}
     if Linear != torch.nn.Linear:
-      linear_kwargs = {"quant_config": env.quant_config}
+      linear_kwargs = {"env": env}
 
     self.gate_proj = Linear(
         hidden_size,
