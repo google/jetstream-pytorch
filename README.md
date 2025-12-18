@@ -1,3 +1,7 @@
+> [!NOTE]
+> This repository is no longer under active development. For running inference on Cloud TPU,
+> see the [tpu-inference](https://github.com/vllm-project/tpu-inference) project.
+> 
 # Jetstream-PyTorch
 JetStream Engine implementation in PyTorch
 
